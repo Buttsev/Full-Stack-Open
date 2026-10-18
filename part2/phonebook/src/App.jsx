@@ -1,25 +1,21 @@
-import {useEffect, useState} from 'react'
+import {StrictMode, useEffect, useState} from 'react'
 import Names from './components/Names.jsx'
+import Name from './components/Name.jsx'
 import PersonsForm from "./components/PersonsForm.jsx";
 import Filter from "./components/Filter.jsx";
-import axios from "axios";
+import phoneService from "./services/phonebook.js";
 
 const App = () => {
-    const [persons, setPersons] = useState([
-        // {name: 'Arto Hellas', number: '040-123456', id: 1},
-        // {name: 'Ada Lovelace', number: '39-44-5323523', id: 2},
-        // {name: 'Dan Abramov', number: '12-43-234345', id: 3},
-        // {name: 'Mary Poppendieck', number: '39-23-6423122', id: 4}
-    ])
+    const [persons, setPersons] = useState([])
     const [newName, setNewName] = useState('Arto Hellas')
     const [newNumber, setNewNumber] = useState('')
     const [filter, setFilter] = useState('')
     useEffect(() => {
-        axios
-            .get('http://localhost:3001/persons')
+        phoneService.getPersons()
             .then(response => {
-                setPersons(response.data)
+                return setPersons(response)
             })
+
     }, [])
 
     //Name contains filter
@@ -45,25 +41,47 @@ const App = () => {
         )
     })
 
+
     const addPerson = (e) => {
         e.preventDefault()
-        if (newName === '' || newName === ' ') {
+        if (!newName.trim()) {
             window.alert('Please enter a name')
             return
         }
-        if (newNumber === '' || newNumber === ' ') {
+        if (!newNumber.trim()) {
             window.alert('Please enter a number')
             return
         }
         const newPersonObject = {name: String(newName), number: String(newNumber)}
-        if (persons.some(person => person.name === newPersonObject.name)) {
-            window.alert(`${newPersonObject.name} is already registered`)
-            setNewName('')
+
+        const existingPerson = persons.find((person) => person.name === newPersonObject.name)
+
+        if (existingPerson) {
+            if (window.confirm(`${existingPerson.name} is already in phonebook. Do you want to replace the number from ${existingPerson.number} to ${newPersonObject.number}?`)) {
+                phoneService.updatePerson(existingPerson.id, newPersonObject)
+                    .then(updatedPerson => {
+                        setPersons(prevPersons =>
+                            prevPersons.map(person =>
+                                person.id === existingPerson.id ? updatedPerson : person
+                            )
+                        )
+                        setNewName('')
+                        setNewNumber('')
+                    })
+            }
+
             return
         }
-        setPersons(persons.concat(newPersonObject))
-        setNewName('')
-        setNewNumber('')
+
+
+        phoneService.addPerson(newPersonObject)
+            .then(response => {
+                setPersons(persons.concat(response))
+                setNewName('')
+                setFilter('')
+            })
+
+
     }
     const handleNameChange = (e) => {
         setNewName(e.target.value)
@@ -74,18 +92,33 @@ const App = () => {
     const handleFilterChange = (e) => {
         setFilter(e.target.value)
     }
+    const toggleDelete = (id) => {
+        if (window.confirm('Are you sure?')) {
+            phoneService.deletePerson(id).then(() => {
+                setPersons(persons.filter(person => person.id !== id))
+            })
+        }
 
-    return (<div>
-        <h2>Phonebook</h2>
-        <Filter handleFilterChange={handleFilterChange} filter={filter}/>
-        <PersonsForm handleSubmit={addPerson} handleNameChange={handleNameChange}
-                     handleNumberChange={handleNumberChange} name={newName}
-                     number={newNumber}/>
-        <h2>Numbers</h2>
-        <Names persons={personsToShow}/>
+    }
 
 
-    </div>)
+    return (
+        <div>
+            <h2>Phonebook</h2>
+            <Filter handleFilterChange={handleFilterChange} filter={filter}/>
+            <PersonsForm handleSubmit={addPerson} handleNameChange={handleNameChange}
+                         handleNumberChange={handleNumberChange} name={newName}
+                         number={newNumber}/>
+            <h2>Numbers</h2>
+            {personsToShow.map((person) => {
+                return (<Name key={person.name} person={person} toggleDelete={() => toggleDelete(person.id)}/>)
+
+            })}
+
+
+        </div>
+
+    )
 }
 
 export default App
