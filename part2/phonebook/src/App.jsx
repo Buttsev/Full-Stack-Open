@@ -1,8 +1,8 @@
-import {StrictMode, useEffect, useState} from 'react'
-import Names from './components/Names.jsx'
+import {useEffect, useState} from 'react'
 import Name from './components/Name.jsx'
 import PersonsForm from "./components/PersonsForm.jsx";
 import Filter from "./components/Filter.jsx";
+import Notification from "./components/Notification.jsx";
 import phoneService from "./services/phonebook.js";
 
 const App = () => {
@@ -10,6 +10,8 @@ const App = () => {
     const [newName, setNewName] = useState('Arto Hellas')
     const [newNumber, setNewNumber] = useState('')
     const [filter, setFilter] = useState('')
+    const [message, setMessage] = useState(null)
+    const [messageType, setMessageType] = useState('')
     useEffect(() => {
         phoneService.getPersons()
             .then(response => {
@@ -67,7 +69,12 @@ const App = () => {
                         )
                         setNewName('')
                         setNewNumber('')
-                    })
+                    }).catch(error => {
+                    setMessage(`Information of '${existingPerson.name}' was already removed from server`)
+                    setMessageType('error')
+                    setTimeout(() => setMessage(null), 3000)
+                    setPersons(persons.filter(p => p.id !== existingPerson.id))
+                })
             }
 
             return
@@ -79,6 +86,11 @@ const App = () => {
                 setPersons(persons.concat(response))
                 setNewName('')
                 setFilter('')
+
+                setMessage(`Added ${response.name}`)
+                setMessageType('success')
+                setTimeout(() => setMessage(null), 3000)
+                // setTimeout(() => setMessageType(''), 3000)
             })
 
 
@@ -105,6 +117,7 @@ const App = () => {
     return (
         <div>
             <h2>Phonebook</h2>
+            <Notification message={message} messageType={messageType}/>
             <Filter handleFilterChange={handleFilterChange} filter={filter}/>
             <PersonsForm handleSubmit={addPerson} handleNameChange={handleNameChange}
                          handleNumberChange={handleNumberChange} name={newName}
